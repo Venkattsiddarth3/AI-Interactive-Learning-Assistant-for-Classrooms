@@ -1,0 +1,289 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>🎓 Multimodal AI Assistant</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&display=swap" rel="stylesheet"/>
+<script src="https://cdn.jsdelivr.net/npm/tesseract.js@2.1.4/dist/tesseract.min.js"></script>
+<style>
+* { font-family: 'Inter', sans-serif; box-sizing: border-box; }
+body {
+  margin: 0; padding: 0;
+  background: linear-gradient(to bottom right, #eef2ff, #fce7f3);
+  display: flex; flex-direction: column; align-items: center;
+  padding: 2rem; min-height: 100vh;
+}
+.container {
+  background: white;
+  padding: 2rem;
+  border-radius: 1rem;
+  box-shadow: 0 10px 25px rgba(0,0,0,0.1);
+  max-width: 900px; width: 100%;
+}
+h2 { margin-bottom: 1rem; color: #4f46e5; }
+textarea {
+  width: 100%; height: 100px; padding: 1rem;
+  border: 1px solid #ccc; border-radius: 0.75rem;
+  resize: none; font-size: 1rem; margin-bottom: 1rem;
+}
+button, input[type="file"] {
+  background-color: #6366f1; color: white; border: none;
+  padding: 0.75rem 1.2rem; margin-top: 0.5rem; margin-right: 1rem;
+  border-radius: 0.5rem; font-size: 1rem; cursor: pointer;
+}
+input[type="file"] {
+  padding: 0.5rem; background-color: #e5e7eb;
+  color: #374151; border: 1px solid #d1d5db;
+}
+.output, .history {
+  margin-top: 1.5rem; background: #f9fafb; padding: 1rem;
+  border-radius: 0.75rem; max-height: 450px;
+  overflow-y: auto; border: 1px solid #e5e7eb;
+}
+.microphone {
+  margin-left: 1rem; cursor: pointer;
+  font-size: 1.5rem; color: #4b5563;
+}
+#engagementStatus, #interactivityStatus {
+  margin-top: 0.5rem;
+  font-weight: 600; font-size: 1rem; color: #1f2937;
+}
+.chat-entry {
+  margin-bottom: 1rem;
+  padding-bottom: 0.5rem;
+  border-bottom: 1px dashed #d1d5db;
+}
+.user-query { font-weight: bold; color: #4f46e5; }
+.assistant-response { color: #374151; }
+.timestamp { font-size: 0.8rem; color: #6b7280; text-align: right; }
+#generatingIndicator, #voiceIndicator, #webcamIndicator {
+  margin-top: 1rem; font-weight: bold;
+  display: none;
+}
+#generatingIndicator { color: #4f46e5; }
+#voiceIndicator { color: #10b981; animation: pulse 1s infinite; }
+#webcamIndicator { color: #f43f5e; animation: pulse 1s infinite; }
+@keyframes pulse {
+  0% { transform: scale(1); opacity: 1; }
+  50% { transform: scale(1.2); opacity: 0.6; }
+  100% { transform: scale(1); opacity: 1; }
+}
+#imageResult img {
+  max-width: 100%; border: 2px solid #ccc;
+  border-radius: 0.75rem; margin-top: 1rem;
+}
+video { border-radius: 10px; border: 2px solid #4f46e5; margin-top: 1rem; display: none; }
+.controls {
+  display: flex; flex-wrap: wrap; align-items: center; gap: 0.5rem;
+}
+</style>
+</head>
+<body>
+<div class="container">
+  <h2>🎓 Multimodal AI Assistant</h2>
+
+  <textarea id="query" placeholder="Ask me anything..."></textarea>
+  <div id="generatingIndicator">⏳ Generating Answer...</div>
+  <div id="voiceIndicator">🔊 Speaking...</div>
+  <div id="webcamIndicator">🔴 Webcam On</div>
+
+  <div class="controls">
+    <button onclick="askAssistant()">Ask</button>
+    <input type="file" accept="image/*" id="imageInput" onchange="uploadImage()" />
+    <button onclick="downloadHistory()">📅 Export Chat</button>
+    <span class="microphone" onclick="startListening()">🎙️ </span>
+    <label><input type="checkbox" id="voiceToggle" checked /> 🔊 Voice</label>
+    <button onclick="toggleWebcam()" id="webcamBtn">Start Webcam</button>
+  </div>
+
+  <textarea id="imagePrompt" placeholder="Enter prompt to generate image..."></textarea>
+  <button onclick="generateImage()">🖼️ Generate Image</button>
+  <div id="imageResult"></div>
+
+  <video id="webcam" width="320" height="240" autoplay muted></video>
+  <div id="engagementStatus"></div>
+  <div id="interactivityStatus"></div>
+
+  <div id="statusMessages" class="output"><em>Ready to answer...</em></div>
+
+  <h3>Conversation History</h3>
+  <div id="history" class="history">
+    <p><em>No conversation yet. Start by asking a question!</em></p>
+  </div>
+</div>
+
+<script>
+let lastQueryTime = Date.now();
+let webcamStream = null;
+
+function toggleWebcam() {
+  const video = document.getElementById("webcam");
+  const btn = document.getElementById("webcamBtn");
+  const webcamIndicator = document.getElementById("webcamIndicator");
+  if (webcamStream) {
+    webcamStream.getTracks().forEach(track => track.stop());
+    webcamStream = null;
+    video.srcObject = null;
+    video.style.display = "none";
+    webcamIndicator.style.display = "none";
+    btn.innerText = "Start Webcam";
+  } else {
+    navigator.mediaDevices.getUserMedia({ video: true })
+      .then(stream => {
+        webcamStream = stream;
+        video.srcObject = stream;
+        video.style.display = "block";
+        webcamIndicator.style.display = "block";
+        btn.innerText = "Stop Webcam";
+      })
+      .catch(err => { alert("Webcam access denied."); console.error(err); });
+  }
+}
+
+async function askAssistant() {
+  const query = document.getElementById('query').value.trim();
+  if (!query) return;
+  document.getElementById('statusMessages').innerHTML = '';
+  document.getElementById('generatingIndicator').style.display = 'block';
+
+  try {
+    const res = await fetch('http://127.0.0.1:5000/api/query', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ query })
+    });
+    const data = await res.json();
+    const answer = data.response || "⚠️ No response from assistant.";
+    document.getElementById('generatingIndicator').style.display = 'none';
+
+    document.getElementById('statusMessages').innerHTML = `<strong>🤖 Assistant:</strong> ${answer}`;
+    const entry = document.createElement('div');
+    entry.className = 'chat-entry';
+    entry.innerHTML = `
+      <div class="user-query">You: ${query}</div>
+      <div class="assistant-response">🤖 Assistant: ${answer}</div>
+      <div class="timestamp">${new Date().toLocaleString()}</div>`;
+    const history = document.getElementById('history');
+    if (history.querySelector('p')) history.innerHTML = '';
+    history.prepend(entry);
+
+    if (document.getElementById('voiceToggle').checked) speak(answer);
+    document.getElementById('query').value = '';
+    lastQueryTime = Date.now();
+  } catch (e) {
+    document.getElementById('generatingIndicator').style.display = 'none';
+    document.getElementById('statusMessages').innerText = '❌ Failed to connect to backend.';
+    console.error(e);
+  }
+}
+
+function speak(text) {
+  const voiceIndicator = document.getElementById('voiceIndicator');
+  voiceIndicator.style.display = 'block';
+  const utterance = new SpeechSynthesisUtterance(text);
+  utterance.lang = 'en-US';
+  utterance.onend = () => { voiceIndicator.style.display = 'none'; };
+  speechSynthesis.speak(utterance);
+}
+
+async function generateImage() {
+  const prompt = document.getElementById("imagePrompt").value.trim();
+  if (!prompt) return alert("Enter an image prompt.");
+  const statusBox = document.getElementById('statusMessages');
+  statusBox.innerText = "🎨 Generating image...";
+  try {
+    const res = await fetch("http://127.0.0.1:5000/api/generate_image", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ prompt })
+    });
+    if (!res.ok) throw new Error("Image generation failed");
+    const blob = await res.blob();
+    const url = URL.createObjectURL(blob);
+    document.getElementById("imageResult").innerHTML = `<img src="${url}" /><p class="timestamp">${new Date().toLocaleString()}</p>`;
+    statusBox.innerText = "✅ Image generated.";
+  } catch (e) {
+    console.error(e);
+    statusBox.innerText = "❌ Failed to generate image.";
+  }
+}
+
+function startListening() {
+  const recognition = new (window.SpeechRecognition || window.webkitSpeechRecognition)();
+  recognition.lang = 'en-US';
+  recognition.onresult = e => {
+    document.getElementById('query').value = e.results[0][0].transcript;
+    askAssistant();
+  };
+  recognition.onerror = e => alert("Speech error: " + e.error);
+  recognition.start();
+}
+
+async function uploadImage() {
+  const file = document.getElementById('imageInput').files[0];
+  if (!file) return;
+  const statusBox = document.getElementById('statusMessages');
+  statusBox.innerText = '🧠 Extracting text...';
+  try {
+    const { data: { text } } = await Tesseract.recognize(file, 'eng');
+    document.getElementById('query').value += '\n' + text;
+    statusBox.innerText = '✅ Text extracted.';
+  } catch (e) {
+    console.error(e);
+    statusBox.innerText = '❌ OCR failed.';
+  }
+}
+
+function downloadHistory() {
+  fetch('http://127.0.0.1:5000/download_log')
+    .then(res => res.blob())
+    .then(blob => {
+      const link = document.createElement('a');
+      link.href = URL.createObjectURL(blob);
+      link.download = 'chat_log.txt';
+      link.click();
+    })
+    .catch(e => console.error('Download failed', e));
+}
+
+window.onload = async function loadChatHistory() {
+  try {
+    const res = await fetch("http://127.0.0.1:5000/api/chat_history");
+    const historyData = await res.json();
+    const history = document.getElementById("history");
+    history.innerHTML = "";
+    historyData.forEach(entry => {
+      const div = document.createElement("div");
+      div.className = "chat-entry";
+      div.innerHTML = `
+        <div class="user-query"><strong>You:</strong> ${entry.user}</div>
+        <div class="assistant-response"><strong>🤖 Assistant:</strong> ${entry.assistant}</div>
+        <div class="timestamp">🕒 ${entry.timestamp} | ⏱️ ${entry.response_time_sec}s</div>`;
+      history.appendChild(div);
+    });
+  } catch (e) { console.error('History load failed', e); }
+};
+
+setInterval(() => {
+  const vid = document.getElementById("webcam");
+  if (!vid || vid.style.display === "none" || vid.readyState < 2) return;
+  const canvas = document.createElement("canvas");
+  canvas.width = vid.videoWidth;
+  canvas.height = vid.videoHeight;
+  canvas.getContext("2d").drawImage(vid, 0, 0);
+  canvas.toBlob(async (blob) => {
+    const formData = new FormData();
+    formData.append("frame", blob, "frame.jpg");
+    try {
+      const res = await fetch("http://127.0.0.1:5000/analyze_emotion", { method: "POST", body: formData });
+      const { emotion } = await res.json();
+      const engaged = ['happy', 'neutral', 'interested'].includes(emotion.toLowerCase());
+      document.getElementById("engagementStatus").innerText = engaged ? "🟢 Engaged" : "🔴 Not Engaged";
+      const seconds = (Date.now() - lastQueryTime) / 1000;
+      document.getElementById("interactivityStatus").innerText = 
+        (engaged || seconds < 15) ? "✅ Interactive" : "❌ Not Interactive";
+    } catch (e) { console.error('Emotion check failed', e); }
+  }, "image/jpeg");
+}, 7000);
+</script>
+</body>
+</html>
