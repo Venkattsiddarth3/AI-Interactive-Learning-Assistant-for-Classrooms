@@ -1,6 +1,12 @@
 # AI-Interactive-Learning-Assistant-for-Classrooms
 <br>
 
+## Report Link : https://drive.google.com/file/d/1c8Nd1IzkU3nsipFwVK1xTS2OpEcR3VXB/view?usp=sharing
+
+## PPT Link : https://docs.google.com/presentation/d/1r6uWsSmmo-20kb6cGiuFcjFIAxfPYZ5N/edit?usp=sharing&ouid=117711257962061767851&rtpof=true&sd=true
+
+## Demo Link : https://drive.google.com/file/d/1GDrKL_hIdA7TBMqOyZJbnEVDo-fzdbGI/view?usp=sharing
+
 ## Overview
 
 This project builds an AI-powered multimodal assistant designed for classrooms, integrating:
