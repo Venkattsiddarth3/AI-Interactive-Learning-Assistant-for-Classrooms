@@ -5,7 +5,7 @@
 
 ## PPT Link : https://docs.google.com/presentation/d/1r6uWsSmmo-20kb6cGiuFcjFIAxfPYZ5N/edit?usp=sharing&ouid=117711257962061767851&rtpof=true&sd=true
 
-## Demo Link : https://drive.google.com/file/d/1GDrKL_hIdA7TBMqOyZJbnEVDo-fzdbGI/view?usp=sharing
+## Demo Link : https://drive.google.com/file/d/1GDrKL_hIdA7TBMqOyZJbnEVDo-fzdbGI/view?usp=drivesdk
 
 ## Overview
 
