@@ -1,4 +1,4 @@
-# AI-Interactive-Learning-Assistant-for-Classrooms
+# AI-Powered-Interactive-Learning-Assistant-for-Classrooms
 <br>
 
 ## Report Link : https://drive.google.com/file/d/1c8Nd1IzkU3nsipFwVK1xTS2OpEcR3VXB/view?usp=sharing
